@@ -1,0 +1,27 @@
+graphite:
+ host: "127.0.0.1"
+ port: 2003
+ interval: 120
+tm_api:
+ host: "192.166.123.11"
+ port: 22015
+ proto: "http"
+ user: "user"
+ password: "password"
+storages:
+ - serialNumber: "111111"
+   type: "g800"
+   visibleName: "i07-VSPG800-111111"
+   hostName: "i07hcs03.unix.local"
+   instanceName: "i07-VSPG800-111111"
+
+ - serialNumber: "222222"
+   type: "husvm"
+   visibleName: "i07-HUSVM-222222"
+   hostName: "i07hcs03.unix.local"
+   instanceName: "HUSVM_222222"
+logging:
+ - logger: "CONSOLE"
+   file: "stdout"
+   level: "debug"
+   encoding: "text"
