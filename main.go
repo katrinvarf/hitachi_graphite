@@ -3,14 +3,17 @@ package main
 import(
 	"flag"
 	"github.com/sirupsen/logrus"
-	"./config"
+	"github.com/katrinvarf/hitachi_graphite/config"
+	"github.com/katrinvarf/hitachi_graphite/getData"
 	"os"
 	"io"
-	"fmt"
+	//"fmt"
+	"time"
 	"runtime"
 )
 
 func main(){
+	configResourcePath := "./config/metrics.yml"
 	var configPath string
 	flag.StringVar(&configPath, "config", "", "Path to the config file")
 	flag.Parse()
@@ -25,19 +28,19 @@ func main(){
 	var writers []io.Writer
 	var level logrus.Level
 	var format logrus.Formatter
-	for i, _ := range(config.GeneralConfig.Loggers){
-		if config.GeneralConfig.Loggers[i].LoggerName=="FILE"{
-			file, err := os.OpenFile(config.GeneralConfig.Loggers[i].File, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	for i, _ := range(config.General.Loggers){
+		if config.General.Loggers[i].LoggerName=="FILE"{
+			file, err := os.OpenFile(config.General.Loggers[i].File, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 			if err!=nil{
 				log.Warning("Failed to initialize log file: Error: ", err)
 				defer file.Close()
 				writers = append(writers, file)
-				level = logLevels[config.GeneralConfig.Loggers[i].Level]
-				format = formatters[config.GeneralConfig.Loggers[i].Encoding]
+				level = logLevels[config.General.Loggers[i].Level]
+				format = formatters[config.General.Loggers[i].Encoding]
 			} else {
 				writers = append(writers, os.Stdout)
-				level = logLevels[config.GeneralConfig.Loggers[i].Level]
-				format = formatters[config.GeneralConfig.Loggers[i].Encoding]
+				level = logLevels[config.General.Loggers[i].Level]
+				format = formatters[config.General.Loggers[i].Encoding]
 			}
 		}
 	}
@@ -45,8 +48,20 @@ func main(){
 		mw := io.MultiWriter(writers...)
 		setValuesLogrus(log, level, mw, format)
 	}
+	log.Debug("Starting...")
+	api := config.General.Api
+	storages := config.General.Storages
+	if err := config.GetResourceConfig(log, configResourcePath); err!=nil{
+		log.Warning("Failed to get resource config file: Error: ", err)
+		return
+	}
 	runtime.Gosched()
-	fmt.Println(config.GeneralConfig.Graphite.Host)
+	for {
+		for i, _ := range(config.General.Storages){
+			go getData.GetAllData(log, api, storages[i], config.ResourceGroups)
+		}
+		time.Sleep(time.Second*time.Duration(config.General.Graphite.Interval))
+	}
 }
 
 func setValuesLogrus(log *logrus.Logger, level logrus.Level, output io.Writer, formatter logrus.Formatter){
