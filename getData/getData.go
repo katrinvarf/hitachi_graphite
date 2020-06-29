@@ -5,7 +5,7 @@ import(
 	//"github.com/katrinvarf/hitachi_graphite/config"
 	//"github.com/katrinvarf/hitachi_graphite/sendData"
 	"../config"
-	//"../sendData"
+	"../sendData"
 	"net/http"
 	"encoding/csv"
 	"encoding/json"
@@ -16,6 +16,7 @@ import(
 	"fmt"
 	"io/ioutil"
 	"regexp"
+	"bytes"
 )
 
 var (
@@ -28,36 +29,61 @@ type TInfoColumn struct {
 	dataType string
 }
 
-func GetAllData (log *logrus.Logger, api config.TApiTuningManager, storage config.TStorage, resourceGroups config.TResourceGroups){
+type TStorageApi struct {
+	InstanceName string
+	HostName string
+}
+
+
+func GetAgents(log *logrus.Logger, api config.TApiTuningManager)(map[string]TStorageApi, error){
+	url := api.Protocol + "://" + api.Host + ":" + api.Port + "/TuningManager/v1/objects/AgentForRAID"
+	data_byte, err := getDataBypassError(log, url, api.User, api.Password)
+	if err!=nil{
+		log.Warning("Failed to get data from api: Error: ", err)
+		return nil, err
+	}
+
+	var target interface{}
+	json.NewDecoder(bytes.NewReader(data_byte)).Decode(&target)
+	res_data := make(map[string]TStorageApi)
+	for _, item := range target.(map[string]interface{})["items"].([]interface{}){
+		fmt.Println(item)
+		serialNum := item.(map[string]interface{})["storageSerialNumber"].(string)
+		hostName := item.(map[string]interface{})["hostName"].(string)
+		instName := item.(map[string]interface{})["instanceName"].(string)
+		res_data[serialNum] = TStorageApi{instName, hostName}
+	}
+	return res_data, nil
+}
+
+func GetAllData (log *logrus.Logger, api config.TApiTuningManager, storagesApi TStorageApi, storage config.TStorage, resourceGroups config.TResourceGroups){
 	for i, _ := range(resourceGroups.Capacity){
-		data, err := getDataCapacity(log, api, storage, resourceGroups.Capacity[i])
+		data, err := getDataCapacity(log, api, storagesApi, storage, resourceGroups.Capacity[i])
 		if err!=nil{
 			log.Warning("Failed to GET capacity data ", resourceGroups.Capacity[i].Name, " from device: ", storage.Name, "; Error: ", err)
 			continue
 		}
-		fmt.Println(resourceGroups.Capacity[i].Name, storage.Name, len(data))
-		//go sendData.SendObjects(log, data)
+		go sendData.SendObjects(log, data)
 	}
 	for i, _ :=range(resourceGroups.Perf){
-		data, err := getDataPerf(log, api, storage, resourceGroups.Perf[i])
+		data, err := getDataPerf(log, api, storagesApi, storage, resourceGroups.Perf[i])
 		if err!=nil{
 			log.Warning("Failed to GET perf data ", resourceGroups.Perf[i].Name, " from device: ", storage.Name, "; Error: ", err)
 			continue
 		}
-		fmt.Println(resourceGroups.Perf[i].Name, storage.Name, len(data))
-		//go sendData.SendObjects(log, data)
+		go sendData.SendObjects(log, data)
 	}
 }
 
-func getDataCapacity(log *logrus.Logger, api config.TApiTuningManager, storage config.TStorage, resource config.TResource)([]string, error){
+func getDataCapacity(log *logrus.Logger, api config.TApiTuningManager, storageApi TStorageApi, storage config.TStorage, resource config.TResource)([]string, error){
 	var result []string
-	data, err := getDataBypassError(log, api, storage, resource.Name)
+	data, err := getResource(log, api, storageApi, resource.Name)
 	if err!=nil{
 		log.Warning("Failed to get data from api; Error: ", err)
 		return nil, err
 	}
 
-	if len(data) == 2{
+	if len(data) <= 2{
 		return result, nil
 	}
 
@@ -70,14 +96,14 @@ func getDataCapacity(log *logrus.Logger, api config.TApiTuningManager, storage c
 	ldevs := make(map[string]map[string]string)
 	pools := make(map[string]map[string]string)
 	if resource.Type == "LDEV"{
-		ldevs, err = getLdevs(log, api, storage)
+		ldevs, err = getLdevs(log, api, storageApi)
 		if err!=nil{
 			log.Warning("Failed to get LDEV; Error: ", err)
 			return nil, err
 		}
 	}
 	if resource.Type == "POOL"{
-		pools, err = getPools(log, api, storage)
+		pools, err = getPools(log, api, storageApi)
 		if err!=nil{
 			log.Warning("Failed to get POOL; Error: ", err)
 			return nil, err
@@ -105,7 +131,9 @@ func getDataCapacity(log *logrus.Logger, api config.TApiTuningManager, storage c
 			if value_float, err := strconv.ParseFloat(data[i][j],64); err==nil{
 				graphitemetric := ""
 				value := strconv.FormatFloat(value_float, 'f', 6, 64)
-				graphitetime := data[i][headers["DATETIME"].index]
+				datetime, _ := time.Parse("2006-01-02 15:04:05", data[i][headers["DATETIME"].index])
+				//gmt_adjust, _ := strconv.ParseInt(data[i][headers["GMT_ADJUST"].index], 10, 64)
+				graphitetime:= strconv.FormatInt(datetime.Unix(), 10)
 				importmetric := "REALTIME_" + data[0][j]
 				if resource.Type == "LDEV"{
 					ldev_id := data[i][headers["LDEV_NUMBER"].index]
@@ -125,15 +153,15 @@ func getDataCapacity(log *logrus.Logger, api config.TApiTuningManager, storage c
 	return result, nil
 }
 
-func getDataPerf(log *logrus.Logger, api config.TApiTuningManager, storage config.TStorage, resource config.TResource)([]string, error){
+func getDataPerf(log *logrus.Logger, api config.TApiTuningManager, storageApi TStorageApi, storage config.TStorage, resource config.TResource)([]string, error){
 	var result []string
-	data, err := getDataBypassError(log, api, storage, resource.Name)
+	data, err := getResource(log, api, storageApi, resource.Name)
 	if err!=nil{
 		log.Warning("Failed to get data from api; Error: ", err)
 		return nil, err
 	}
 
-	if len(data)==2{
+	if len(data)<=2{
 		return result, nil
 	}
 
@@ -146,13 +174,13 @@ func getDataPerf(log *logrus.Logger, api config.TApiTuningManager, storage confi
 	ldevs := make(map[string]map[string]string)
 	pools := make(map[string]map[string]string)
 	if resource.Name == "RAID_PI_LDS"{
-		ldevs, err = getLdevs(log, api, storage)
+		ldevs, err = getLdevs(log, api, storageApi)
 		if err!=nil{
 			log.Warning("Failed to get LDEV; Error: ", err)
 			return nil, err
 		}
 	} else if resource.Name == "RAID_PI_PLS"{
-		pools, err = getPools(log, api, storage)
+		pools, err = getPools(log, api, storageApi)
 		if err!=nil{
 			log.Warning("Failed to get POOL; Error: ", err)
 			return nil, err
@@ -173,7 +201,9 @@ func getDataPerf(log *logrus.Logger, api config.TApiTuningManager, storage confi
 		for j:=0; j<len(data[0]); j++{
 			if value_float, err := strconv.ParseFloat(data[i][j],64); err==nil{
 				value := strconv.FormatFloat(value_float, 'f', 6, 64)
-				graphitetime := data[i][headers["DATETIME"].index]
+				datetime, _ := time.Parse("2006-01-02 15:04:05", data[i][headers["DATETIME"].index])
+				//gmt_adjust, _ := strconv.ParseInt(data[i][headers["GMT_ADJUST"].index], 10, 64)
+				graphitetime:= strconv.FormatInt(datetime.Unix(), 10)
 				importmetric := "REALTIME_" + data[0][j]
 				graphitemetric := ""
 				if resource.Name == "RAID_PI_LDS"{
@@ -208,12 +238,12 @@ func getDataPerf(log *logrus.Logger, api config.TApiTuningManager, storage confi
 	return result, nil
 }
 
-func getDataBypassError(log *logrus.Logger, api config.TApiTuningManager, storage config.TStorage, resource string)([][]string, error){
+func getDataBypassError(log *logrus.Logger, url string, user string, password string)([]byte, error){
 	var err error
 	for i:=0; i<num_attempts; i++{
-		data, code, err := getDataFromApi(log, api, storage, resource)
-		if code != 503{
-			return data, err
+		data_byte, code, err := getDataFromApi(log, url, user, password)
+		if (code != 503)&&(code != 500){
+			return data_byte, err
 		}
 		time.Sleep(time.Second * time.Duration(period_attempts))
 	}
@@ -221,63 +251,73 @@ func getDataBypassError(log *logrus.Logger, api config.TApiTuningManager, storag
 	return nil, err
 }
 
-func getDataFromApi(log *logrus.Logger, api config.TApiTuningManager, storage config.TStorage, resource string)([][]string, int, error){
-	url := api.Protocol + "://" + api.Host + ":" + api.Port + "/TuningManager/v1/objects/" + resource + "?hostName=" + storage.HostName + "%26agentInstanceName=" + storage.InstanceName
+func getDataFromApi(log *logrus.Logger, url string, user string, password string)([]byte, int, error){
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		log.Warning("Failed to create http request: Error: ", err)
 		return nil, 0, err
 	}
-	req.SetBasicAuth(api.User, api.Password)
-	req.Header.Set("Content-Type", "application/json")
 
+	req.SetBasicAuth(user, password)
+	req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		log.Warning("Failed to do client request: Error: ", err)
 		return nil, 0, err
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == 200{
-		reader := csv.NewReader(resp.Body)
-		reader.Comma = ','
-		data, err := reader.ReadAll()
-		if err != nil{
-			log.Warning("Failed to read response body: Error: ", err)
-			return nil, 0, err
-		}
-		return data, resp.StatusCode, nil
+	body, err := ioutil.ReadAll(resp.Body)
+	if err!=nil{
+		log.Warning("Failed to read response body: Error: ", err)
+		return nil, 0, err
 	}
-	return nil, resp.StatusCode, readerErrorForContent(resp)
+	defer resp.Body.Close()
+	if resp.StatusCode == 200 {
+		return body, resp.StatusCode, nil
+	}
+	return nil, resp.StatusCode, readerErrorForContent(body, resp.Header.Get("Content-Type"), resp.StatusCode)
 }
 
-func readerErrorForContent(response *http.Response)(err error){
-	switch response.Header.Get("Content-Type"){
+func getResource(log *logrus.Logger, api config.TApiTuningManager, storageApi TStorageApi, resource string)([][]string, error){
+	url := api.Protocol + "://" + api.Host + ":" + api.Port + "/TuningManager/v1/objects/" + resource + "?hostName=" + storageApi.HostName + "%26agentInstanceName=" + storageApi.InstanceName
+	data_byte, err := getDataBypassError(log, url, api.User, api.Password)
+	if err!=nil{
+		log.Warning("Failed to get data from api: Error: ", err)
+		return nil, err
+	}
+	reader := csv.NewReader(bytes.NewReader(data_byte))
+	reader.Comma = ','
+	res_data, err := reader.ReadAll()
+	if err != nil{
+		log.Warning("Failed to read byte data: Error: ", err)
+		return nil, err
+	}
+	return res_data, nil
+}
+
+func readerErrorForContent(data_byte []byte, content string, code int)(err error){
+	switch content{
 		case "application/json;charset=utf-8":
 			var target interface{}
-			json.NewDecoder(response.Body).Decode(&target)
-			code := strconv.Itoa(response.StatusCode)
-			err = errors.New(code + ": " + target.(map[string]interface{})["message"].(string))
+			json.NewDecoder(bytes.NewReader(data_byte)).Decode(&target)
+			err = errors.New(strconv.Itoa(code) + ": " + target.(map[string]interface{})["message"].(string))
 
 		case "text/html;charset=utf-8":
-			target, _ := ioutil.ReadAll(response.Body)
-			code := strconv.Itoa(response.StatusCode)
 			r := regexp.MustCompile(`<title>(.+)?<\/title>`)
-			res := r.FindStringSubmatch(string(target))[1]
-			err = errors.New(code + ": " + res)
+			res := r.FindStringSubmatch(string(data_byte))[1]
+			err = errors.New(strconv.Itoa(code) + ": " + res)
 	}
 	return err
 }
 
-func getLdevs (log *logrus.Logger, api config.TApiTuningManager, storage config.TStorage)(map[string]map[string]string, error){
+func getLdevs (log *logrus.Logger, api config.TApiTuningManager, storageApi TStorageApi)(map[string]map[string]string, error){
 	ldevs := make(map[string]map[string]string)
-	data, err := getDataBypassError(log, api, storage, "RAID_PD_LDC")
+	data, err := getResource(log, api, storageApi, "RAID_PD_LDC")
 	if err!=nil{
 		log.Warning("Failed to get data from api: Error: ", err)
 		return ldevs, err
 	}
 
-	pools, err := getPools(log, api, storage)
+	pools, err := getPools(log, api, storageApi)
 	if err!=nil{
 		log.Warning("Failed to get POOL; Error: ", err)
 		return ldevs, err
@@ -302,9 +342,9 @@ func getLdevs (log *logrus.Logger, api config.TApiTuningManager, storage config.
 	return ldevs, nil
 }
 
-func getPools (log *logrus.Logger, api config.TApiTuningManager, storage config.TStorage)(map[string]map[string]string, error){
+func getPools (log *logrus.Logger, api config.TApiTuningManager, storageApi TStorageApi)(map[string]map[string]string, error){
 	pools := make(map[string]map[string]string)
-	data, err := getDataBypassError(log, api, storage, "RAID_PD_PLC")
+	data, err := getResource(log, api, storageApi, "RAID_PD_PLC")
 	if err!=nil{
 		log.Warning("Failed to get data from api: Error: ", err)
 		return pools, err

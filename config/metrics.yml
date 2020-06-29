@@ -53,6 +53,6 @@ capacity:
    target: "PART"
    type: "POOL"
  - name: "RAID_PD_PLC"
-   label: "POOL_ID"
+   label: ""
    target: "ALL"
    type: "POOL"

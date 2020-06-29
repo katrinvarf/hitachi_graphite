@@ -8,6 +8,7 @@ import(
 	"strings"
 	"strconv"
 	"time"
+	//"fmt"
 )
 
 func SendObjects(log *logrus.Logger, metrics []string){
@@ -17,7 +18,8 @@ func SendObjects(log *logrus.Logger, metrics []string){
 		metric := strings.Split(metrics[i], " ")
 		name := metric[0]
 		value, _ := strconv.ParseFloat(metric[1], 32)
-		timestamp,_ := time.Parse(time.UnixDate, metric[2] + " " + metric[3])
+		timestamp_int, _ := strconv.ParseInt(metric[2], 10, 64)
+		timestamp := time.Unix(timestamp_int, 0)
 		err := Connection.Send(graphigo.Metric{Name: name, Value: value, Timestamp: timestamp})
 		if err!=nil{
 			log.Warning("Failed to send metric: ", name, " = ", value, " :Error: ", err)

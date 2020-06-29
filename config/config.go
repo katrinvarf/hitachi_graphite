@@ -11,8 +11,8 @@ import(
 type TGeneral struct {
 	Graphite TGraphite `yaml:"graphite"`
 	Api TApiTuningManager `yaml:"tm_api"`
-	Storages []TStorage `yaml:"storages"`
 	Loggers []TLogging `yaml:"logging"`
+	Storages []TStorage `yaml:"storages"`
 }
 
 type TGraphite struct {
@@ -33,8 +33,6 @@ type TStorage struct {
 	Serial_Num string `yaml:"serialNumber"`
 	Type string `yaml:"type"`
 	Name string `yaml:"visibleName"`
-	HostName string `yaml:"hostName"`
-	InstanceName string `yaml:"instanceName"`
 }
 
 type TLogging struct {

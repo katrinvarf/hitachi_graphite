@@ -61,9 +61,14 @@ func main(){
 
 	runtime.Gosched()
 	fmt.Println("Starting...")
+	storagesApi, err := getData.GetAgents(log, config.General.Api)
+	if err!=nil{
+		log.Fatal("Failed to get storage info from AgentForRaid: Error: ", err)
+		return
+	}
 	for {
 		for i, _ := range(config.General.Storages){
-			go getData.GetAllData(log, config.General.Api, config.General.Storages[i], config.ResourceGroups)
+			go getData.GetAllData(log, config.General.Api, storagesApi[config.General.Storages[i].Serial_Num], config.General.Storages[i], config.ResourceGroups)
 		}
 		time.Sleep(time.Second * time.Duration(config.General.Graphite.Interval))
 	}
