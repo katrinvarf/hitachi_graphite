@@ -3,18 +3,20 @@ package sendData
 import(
 	"github.com/sirupsen/logrus"
 	"gopkg.in/fgrosse/graphigo.v2"
-	"github.com/katrinvarf/hitachi_graphite/config"
+	//"github.com/katrinvarf/hitachi_graphite/config"
+	"../config"
 	"strings"
+	"strconv"
 	"time"
 )
 
 func SendObjects(log *logrus.Logger, metrics []string){
-	Connection := graphigo.NewClient(config.General.Graphite.Host)
+	Connection := graphigo.NewClient(config.General.Graphite.Host+":"+config.General.Graphite.Port)
 	Connection.Connect()
 	for i, _ := range(metrics){
 		metric := strings.Split(metrics[i], " ")
 		name := metric[0]
-		value := metric[1]
+		value, _ := strconv.ParseFloat(metric[1], 32)
 		timestamp,_ := time.Parse(time.UnixDate, metric[2] + " " + metric[3])
 		err := Connection.Send(graphigo.Metric{Name: name, Value: value, Timestamp: timestamp})
 		if err!=nil{

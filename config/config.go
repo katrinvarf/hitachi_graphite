@@ -17,7 +17,7 @@ type TGeneral struct {
 
 type TGraphite struct {
 	Host string `yaml:"host"`
-	Port int `yaml:"port"`
+	Port string `yaml:"port"`
 	Interval int `yaml:"interval"`
 }
 
@@ -89,18 +89,3 @@ func GetResourceConfig(log *logrus.Logger, path string)(err error){
 	}
 	return nil
 }
-
-/*func GetResourceConfig(log *logrus.Logger, path string)(ResourceConfig TResourceConfig, err error){
-	var buff []byte
-	buff, err = ioutil.ReadFile(path)
-	if err!=nil{
-		log.Warning("Failed to read config: Error: ", err)
-		return
-	}
-	err = yaml.Unmarshal(buff, &ResourceConfig)
-	if err!=nil{
-		log.Warning("Failed to decode document: Error: ", err)
-		return
-	}
-	return
-}*/

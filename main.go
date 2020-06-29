@@ -3,11 +3,13 @@ package main
 import(
 	"flag"
 	"github.com/sirupsen/logrus"
-	"github.com/katrinvarf/hitachi_graphite/config"
-	"github.com/katrinvarf/hitachi_graphite/getData"
+	//"github.com/katrinvarf/hitachi_graphite/config"
+	//"github.com/katrinvarf/hitachi_graphite/getData"
+	"./config"
+	"./getData"
 	"os"
 	"io"
-	//"fmt"
+	"fmt"
 	"time"
 	"runtime"
 )
@@ -15,16 +17,18 @@ import(
 func main(){
 	configResourcePath := "./config/metrics.yml"
 	var configPath string
-	flag.StringVar(&configPath, "config", "", "Path to the config file")
+	flag.StringVar(&configPath, "config", "", "Path to the general config file")
 	flag.Parse()
 	log := logrus.New()
 
 	if err:=config.GetConfig(configPath); err!=nil{
-		log.Fatal("Failed to get config file: Error: ", err)
+		log.Fatal("Failed to get general config file: Error: ", err)
 		return
 	}
+
 	logLevels := map[string]logrus.Level{"trace": logrus.TraceLevel, "debug": logrus.DebugLevel, "info": logrus.InfoLevel, "warn": logrus.WarnLevel, "error": logrus.ErrorLevel, "fatal": logrus.FatalLevel, "panic": logrus.PanicLevel}
 	formatters := map[string]logrus.Formatter{"json": &logrus.JSONFormatter{TimestampFormat: "02-01-2006 15:04:05"}, "text": &logrus.TextFormatter{TimestampFormat: "02-01-2006 15:04:05", FullTimestamp: true}}
+
 	var writers []io.Writer
 	var level logrus.Level
 	var format logrus.Formatter
@@ -44,23 +48,24 @@ func main(){
 			}
 		}
 	}
+
 	if len(writers)!=0{
 		mw := io.MultiWriter(writers...)
 		setValuesLogrus(log, level, mw, format)
 	}
-	log.Debug("Starting...")
-	api := config.General.Api
-	storages := config.General.Storages
+
 	if err := config.GetResourceConfig(log, configResourcePath); err!=nil{
-		log.Warning("Failed to get resource config file: Error: ", err)
+		log.Fatal("Failed to get resource config file: Error: ", err)
 		return
 	}
+
 	runtime.Gosched()
+	fmt.Println("Starting...")
 	for {
 		for i, _ := range(config.General.Storages){
-			go getData.GetAllData(log, api, storages[i], config.ResourceGroups)
+			go getData.GetAllData(log, config.General.Api, config.General.Storages[i], config.ResourceGroups)
 		}
-		time.Sleep(time.Second*time.Duration(config.General.Graphite.Interval))
+		time.Sleep(time.Second * time.Duration(config.General.Graphite.Interval))
 	}
 }
 
