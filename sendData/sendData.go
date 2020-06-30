@@ -14,6 +14,10 @@ import(
 func SendObjects(log *logrus.Logger, metrics []string){
 	Connection := graphigo.NewClient(config.General.Graphite.Host+":"+config.General.Graphite.Port)
 	Connection.Connect()
+	//fmt.Println(len(metrics))
+	//if len(metrics)==162{
+	//	fmt.Println(metrics)
+	//}
 	for i, _ := range(metrics){
 		metric := strings.Split(metrics[i], " ")
 		name := metric[0]
