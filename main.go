@@ -3,14 +3,13 @@ package main
 import(
 	"flag"
 	"github.com/sirupsen/logrus"
-	//"github.com/katrinvarf/hitachi_graphite/config"
-	//"github.com/katrinvarf/hitachi_graphite/getData"
-	"./config"
-	"./getData"
+	"github.com/katrinvarf/hitachi_graphite/config"
+	"github.com/katrinvarf/hitachi_graphite/getData"
+	//"./config"
+	//"./getData"
 	"os"
 	"io"
 	"fmt"
-	"time"
 	"runtime"
 )
 
@@ -66,12 +65,12 @@ func main(){
 		log.Fatal("Failed to get storage info from AgentForRaid: Error: ", err)
 		return
 	}
-	for {
-		for i, _ := range(config.General.Storages){
-			go getData.GetAllData(log, config.General.Api, storagesApi[config.General.Storages[i].Serial_Num], config.General.Storages[i], config.ResourceGroups)
-		}
-		time.Sleep(time.Second * time.Duration(config.General.Graphite.Interval))
+	var exit = make(chan bool)
+	for i, _ := range(config.General.Storages){
+		go getData.GetAllData(log, config.General.Api, storagesApi[config.General.Storages[i].Serial_Num], config.General.Storages[i], config.ResourceGroups)
 	}
+	<-exit
+	//time.Sleep(time.Second * time.Duration(config.General.Graphite.Interval))
 }
 
 func setValuesLogrus(log *logrus.Logger, level logrus.Level, output io.Writer, formatter logrus.Formatter){
