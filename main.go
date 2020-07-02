@@ -14,7 +14,7 @@ import(
 )
 
 func main(){
-	configResourcePath := "./config/metrics.yml"
+	configResourcePath := "github.com/katrinvarf/hitachi_graphite/config/metrics.yml"
 	var configPath string
 	flag.StringVar(&configPath, "config", "", "Path to the general config file")
 	flag.Parse()
