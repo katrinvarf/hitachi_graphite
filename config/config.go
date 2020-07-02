@@ -18,7 +18,6 @@ type TGeneral struct {
 type TGraphite struct {
 	Host string `yaml:"host"`
 	Port string `yaml:"port"`
-	Interval int `yaml:"interval"`
 }
 
 type TApiTuningManager struct {
