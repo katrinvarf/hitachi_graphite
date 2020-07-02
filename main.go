@@ -14,9 +14,11 @@ import(
 )
 
 func main(){
-	configResourcePath := "github.com/katrinvarf/hitachi_graphite/config/metrics.yml"
+	//configResourcePath := "./config/metrics.yml"
 	var configPath string
+	var configResourcePath string
 	flag.StringVar(&configPath, "config", "", "Path to the general config file")
+	flag.StringVar(&configResourcePath, "resource", "", "Path to the resource list file")
 	flag.Parse()
 	log := logrus.New()
 
