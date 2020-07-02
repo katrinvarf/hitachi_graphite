@@ -60,7 +60,7 @@ func GetConfig(configPath string) (err error){
 	var buff []byte
 	buff, err = ioutil.ReadFile(configPath)
 	if err!=nil{
-		fmt.Println("Failed to read config", err)
+		fmt.Println("Failed to read general config", err)
 		return
 	}
 	err = yaml.Unmarshal(buff, &General)
@@ -77,7 +77,7 @@ func GetResourceConfig(log *logrus.Logger, path string)(err error){
 	var buff []byte
 	buff, err = ioutil.ReadFile(path)
 	if err!=nil{
-		log.Warning("Failed to read config: Error: ", err)
+		log.Warning("Failed to read resource config: Error: ", err)
 	}
 	err = yaml.Unmarshal(buff, &ResourceGroups)
 	if err!=nil{
