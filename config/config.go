@@ -43,8 +43,7 @@ type TLogging struct {
 
 //Типы данных для файла с метриками
 type TResourceGroups struct {
-	Perf []TResource `yaml:"perf"`
-	Capacity []TResource `yaml:"capacity"`
+	Resources []TResource `yaml:"resources"`
 }
 
 type TResource struct {
@@ -52,6 +51,8 @@ type TResource struct {
 	Label string `yaml:"label"`
 	Target string `yaml:"target"`
 	Type string `yaml:"type"`
+	Branch string `yaml:"branch"`
+	Interval int64 `yaml:"interval"`
 }
 
 var General = TGeneral{}
