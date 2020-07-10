@@ -62,9 +62,9 @@ func GetAllData (log *logrus.Logger, api config.TApiTuningManager, storagesApi T
 	for i, _ := range(resourceGroups.Capacity){
 		go getDataCapacity(log, api, storagesApi, storage, resourceGroups.Capacity[i])
 	}
-	//for i, _ :=range(resourceGroups.Perf){
-	//	go getDataPerf(log, api, storagesApi, storage, resourceGroups.Perf[i])
-	//}
+	for i, _ :=range(resourceGroups.Perf){
+		go getDataPerf(log, api, storagesApi, storage, resourceGroups.Perf[i])
+	}
 }
 
 func getDataCapacity(log *logrus.Logger, api config.TApiTuningManager, storageApi TStorageApi, storage config.TStorage, resource config.TResource){
@@ -76,7 +76,7 @@ func getDataCapacity(log *logrus.Logger, api config.TApiTuningManager, storageAp
 			var result []string
 			data, err := getResource(log, api, storageApi, resource.Name)
 			if err!=nil{
-				log.Debug("Failed to get data", resource.Name, " from api (", storageApi.InstanceName, "); Error: ", err)
+				log.Debug("Failed to get data", resource.Name, " from api (", storage.Name, "); Error: ", err)
 				continue
 			}
 

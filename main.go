@@ -69,7 +69,7 @@ func main(){
 	}
 	var exit = make(chan bool)
 	for i, _ := range(config.General.Storages){
-		go getData.GetAllData(log, config.General.Api, storagesApi[config.General.Storages[i].Serial_Num], config.General.Storages[i], config.ResourceGroups)
+		getData.GetAllData(log, config.General.Api, storagesApi[config.General.Storages[i].Serial_Num], config.General.Storages[i], config.ResourceGroups)
 	}
 	<-exit
 	//time.Sleep(time.Second * time.Duration(config.General.Graphite.Interval))
