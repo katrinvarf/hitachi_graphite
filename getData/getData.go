@@ -2,10 +2,10 @@ package getData
 
 import(
 	"github.com/sirupsen/logrus"
-	//"github.com/katrinvarf/hitachi_graphite/config"
-	//"github.com/katrinvarf/hitachi_graphite/sendData"
-	"../config"
-	"../sendData"
+	"github.com/katrinvarf/hitachi_graphite/config"
+	"github.com/katrinvarf/hitachi_graphite/sendData"
+	//"../config"
+	//"../sendData"
 	"net/http"
 	"encoding/csv"
 	"encoding/json"
@@ -13,7 +13,7 @@ import(
 	"strconv"
 	"errors"
 	"time"
-	"fmt"
+	//"fmt"
 	"io/ioutil"
 	"regexp"
 	"bytes"
@@ -37,7 +37,6 @@ type TStorageApi struct {
 
 
 func GetAgents(log *logrus.Logger, api config.TApiTuningManager)(map[string]TStorageApi, error){
-	//fmt.Println(num_attempts)
 	url := api.Protocol + "://" + api.Host + ":" + api.Port + "/TuningManager/v1/objects/AgentForRAID"
 	data_byte, err := getDataFromApi(log, url, api.User, api.Password)
 	if err!=nil{
@@ -62,7 +61,6 @@ func GetAgents(log *logrus.Logger, api config.TApiTuningManager)(map[string]TSto
 
 func worker(log *logrus.Logger, api config.TApiTuningManager, storagesApi map[string]TStorageApi, storages []config.TStorage, resources []config.TResource, indexes <-chan [2]int, result chan<- bool, last_run *[][]int64){
 	for item:=range(indexes){
-		fmt.Println(item[0])
 		value, err := getData(log, api, storagesApi[storages[item[0]].Serial_Num], storages[item[0]], resources[item[1]])
 		if err == nil{
 			(*last_run)[item[0]][item[1]] = value
@@ -72,9 +70,10 @@ func worker(log *logrus.Logger, api config.TApiTuningManager, storagesApi map[st
 }
 
 func GetAllData (log *logrus.Logger, api config.TApiTuningManager, storagesApi map[string]TStorageApi, storages []config.TStorage, resources []config.TResource, last_run *[][]int64){
-	indexes := make(chan [2]int, 100)
-	result := make(chan bool, 100)
-	for w := 1; w <= 6; w++ {
+	size_queue := len(storages)*len(resources)
+	indexes := make(chan [2]int, size_queue)
+	result := make(chan bool, size_queue)
+	for w := 1; w <= 8; w++ {
 		go worker(log, api, storagesApi, storages, resources, indexes, result, last_run)
 	}
 	count_queue := 0
@@ -99,7 +98,7 @@ func getData(log *logrus.Logger, api config.TApiTuningManager, storageApi TStora
 	var last int64
 	data, err := getResource(log, api, storageApi, resource.Name)
 	if err!=nil{
-		log.Warning("Failed to get data", resource.Name, " from api (", storage.Name, "); Error: ", err)
+		log.Warning("Failed to get data ", resource.Name, " from api (", storage.Name, "); Error: ", err)
 		return 0, err
 	}
 
@@ -226,6 +225,9 @@ func getData(log *logrus.Logger, api config.TApiTuningManager, storageApi TStora
 						pool_name := pools[pool_id]["pool_name"]
 						graphitemetric = "hds.perf.physical." + storage.Type + "." + storage.Name + "." +  resource.Target + labelcontent + pool_name + "." + importmetric + " " + value + " " + graphitetime
 						result = append(result, graphitemetric)
+					} else {
+						graphitemetric = "hds.perf.physical." + storage.Type + "." + storage.Name + "." +  resource.Target + labelcontent + importmetric + " " + value + " " + graphitetime
+						result = append(result, graphitemetric)
 					}
 				}
 			}
@@ -347,16 +349,18 @@ func getLdevs (log *logrus.Logger, api config.TApiTuningManager, storageApi TSto
 	for i:=2; i<len(data); i++{
 		ldev_id := data[i][headers["LDEV_NUMBER"].index]
 		ldevs[ldev_id] = make(map[string]string)
-		ldevs[ldev_id]["ldev_name"] = "-"
-		if data[i][headers["LDEV_NAME"].index]!=""{
-			ldevs[ldev_id]["ldev_name"] = data[i][headers["LDEV_NAME"].index]
-		}
+		//ldevs[ldev_id]["ldev_name"] = "-"
+		//if data[i][headers["LDEV_NAME"].index]!=""{
+		//	ldevs[ldev_id]["ldev_name"] = data[i][headers["LDEV_NAME"].index]
+		//}
+		ldevs[ldev_id]["ldev_name"] = data[i][headers["LDEV_NAME"].index]
 		ldevs[ldev_id]["parity_grp"] = data[i][headers["RAID_GROUP_NUMBER"].index]
 		ldevs[ldev_id]["pool_id"] = data[i][headers["POOL_ID"].index]
-		ldevs[ldev_id]["pool_name"] = "-"
-		if pools[data[i][headers["POOL_ID"].index]]["pool_name"]!=""{
-			ldevs[ldev_id]["pool_name"] = pools[data[i][headers["POOL_ID"].index]]["pool_name"]
-		}
+		//ldevs[ldev_id]["pool_name"] = "-"
+		//if pools[data[i][headers["POOL_ID"].index]]["pool_name"]!=""{
+		//	ldevs[ldev_id]["pool_name"] = pools[data[i][headers["POOL_ID"].index]]["pool_name"]
+		//}
+		ldevs[ldev_id]["pool_name"] = pools[data[i][headers["POOL_ID"].index]]["pool_name"]
 		ldevs[ldev_id]["mp_id"] = data[i][headers["MP_BLADE"].index]
 		ldevs[ldev_id]["vldev_id"] = data[i][headers["VIRTUAL_LDEV_NUMBER"].index]
 		ldevs[ldev_id]["v_sn"] = data[i][headers["VIRTUAL_SERIAL_NUMBER"].index]
@@ -380,10 +384,11 @@ func getPools (log *logrus.Logger, api config.TApiTuningManager, storageApi TSto
 	for i:=2; i<len(data); i++{
 		pool_id := data[i][headers["POOL_ID"].index]
 		pools[pool_id] = make(map[string]string)
-		pools[pool_id]["pool_name"] = "-"
-		if data[i][headers["POOL_NAME"].index] != ""{
-			pools[pool_id]["pool_name"] = data[i][headers["POOL_NAME"].index]
-		}
+		//pools[pool_id]["pool_name"] = "-"
+		//if data[i][headers["POOL_NAME"].index] != ""{
+		//	pools[pool_id]["pool_name"] = data[i][headers["POOL_NAME"].index]
+		//}
+		pools[pool_id]["pool_name"] = data[i][headers["POOL_NAME"].index]
 	}
 	return pools, nil
 }

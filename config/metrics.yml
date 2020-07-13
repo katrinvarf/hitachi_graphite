@@ -4,19 +4,19 @@ resources:
    target: "PORT"
    type: ""
    branch: "perf"
-   interval: 59
+   interval: 120
  - name: "RAID_PI_PRCS"
    label: "ADAPTOR_ID,PROCESSOR_ID"
    target: "PRCS"
    type: ""
    branch: "perf"
-   interval: 59
+   interval: 120
  - name: "RAID_PI"
    label: "ALL"
    target: "CACHE"
    type: ""
    branch: "perf"
-   interval: 59
+   interval: 120
  - name: "RAID_PI_PLS"
    label: "POOL_ID"
    target: "POOL"
@@ -46,7 +46,7 @@ resources:
    target: "CHS"
    type: ""
    branch: "perf"
-   interval: 59
+   interval: 120
  - name: "RAID_PD_VVTC"
    label: "TIER_NUMBER,TIER_TYPE"
    target: "TIER"
