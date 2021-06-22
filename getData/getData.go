@@ -69,11 +69,11 @@ func worker(log *logrus.Logger, api config.TApiTuningManager, storagesApi map[st
 	}
 }
 
-func GetAllData (log *logrus.Logger, api config.TApiTuningManager, storagesApi map[string]TStorageApi, storages []config.TStorage, resources []config.TResource, last_run *[][]int64){
+func GetAllData (log *logrus.Logger, api config.TApiTuningManager, storagesApi map[string]TStorageApi, workersCount int, storages []config.TStorage, resources []config.TResource, last_run *[][]int64){
 	size_queue := len(storages)*len(resources)
 	indexes := make(chan [2]int, size_queue)
 	result := make(chan bool, size_queue)
-	for w := 1; w <= 8; w++ {
+	for w := 1; w <= workersCount; w++ {
 		go worker(log, api, storagesApi, storages, resources, indexes, result, last_run)
 	}
 	count_queue := 0
@@ -99,6 +99,12 @@ func getData(log *logrus.Logger, api config.TApiTuningManager, storageApi TStora
 	data, err := getResource(log, api, storageApi, resource.Name)
 	if err!=nil{
 		log.Warning("Failed to get data ", resource.Name, " from api (", storage.Name, "); Error: ", err)
+		return 0, err
+	}
+
+	if len(data)<=2{
+		err = errors.New("No data in the table " + resource.Name + " from " + storageApi.InstanceName)
+		log.Debug(err)
 		return 0, err
 	}
 
@@ -305,11 +311,11 @@ func getResource(log *logrus.Logger, api config.TApiTuningManager, storageApi TS
 		return nil, err
 	}
 
-	if len(res_data)<=2{
+	/*if len(res_data)<=2{
 		err = errors.New("No data in the table " + resource + " from " + storageApi.InstanceName)
 		log.Debug(err)
 		return nil, err
-	}
+	}*/
 	return res_data, nil
 }
 

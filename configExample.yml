@@ -8,6 +8,8 @@ tm_api:
  proto: "http"
  user: "user"
  password: "password"
+workers:
+ count: 8
 storages:
  - serialNumber: "111111"
    type: "g800"

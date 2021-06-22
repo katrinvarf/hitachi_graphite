@@ -15,6 +15,7 @@ import(
 
 func main(){
 	//configResourcePath := "./config/metrics.yml"
+	fmt.Println("Starting...")
 	var configPath string
 	var configResourcePath string
 	flag.StringVar(&configPath, "config", "", "Path to the general config file")
@@ -47,6 +48,10 @@ func main(){
 				level = logLevels[config.General.Loggers[i].Level]
 				format = formatters[config.General.Loggers[i].Encoding]
 			}
+		} else {
+			writers = append(writers, os.Stdout)
+			level = logLevels[config.General.Loggers[i].Level]
+			format = formatters[config.General.Loggers[i].Encoding]
 		}
 	}
 
@@ -61,12 +66,13 @@ func main(){
 	}
 
 	runtime.Gosched()
-	fmt.Println("Starting...")
+
 	storagesApi, err := getData.GetAgents(log, config.General.Api)
 	if err!=nil{
 		log.Fatal("Failed to get storage info from AgentForRaid: Error: ", err)
 		return
 	}
+	fmt.Println("Information about agents received")
 	len_res := len(config.ResourceGroups.Resources)
 	len_strg := len(config.General.Storages)
 	lastrun := make([][]int64, len_strg)
@@ -74,7 +80,7 @@ func main(){
 		lastrun[i] = make([]int64, len_res)
 	}
 	for{
-		getData.GetAllData(log, config.General.Api, storagesApi, config.General.Storages, config.ResourceGroups.Resources, &lastrun)
+		getData.GetAllData(log, config.General.Api, storagesApi, config.General.Workers.Count, config.General.Storages, config.ResourceGroups.Resources, &lastrun)
 	}
 }
 
